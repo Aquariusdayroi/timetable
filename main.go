@@ -349,10 +349,118 @@ func (tt TimeTable) calTrungTiet() int {
 	return fitness
 }
 
+// kiểm tra tiết lủng
+func (tt TimeTable) calTietLung() int {
+	fitness := 0
+	for col := 0; col < len(tt.timeTable[0]); col++ {
+		for row := 0; row < len(tt.timeTable); row++ {
+			if tt.timeTable[row][col].isEmpty() {
+				var c1, c2 bool
+				k_truoc := row
+				for k_truoc >= (row/5)*5 {
+					if !tt.timeTable[k_truoc][col].isEmpty() { // Tiết trước đó có tiết
+						c1 = true
+						break
+					}
+					k_truoc--
+				}
+				k_sau := row
+				for k_sau < (row/5+1)*5 {
+					if !tt.timeTable[k_sau][col].isEmpty() { // Tiết sau đó có tiết
+						c2 = true
+						break
+					}
+					k_sau++
+				}
+
+				if c1 && c2 {
+					fitness++
+				}
+			}
+		}
+	}
+	return fitness
+}
+
+// kiểm tra giáo viên chỉ dạy 1 tiết trong 1 buổi
+func (tt TimeTable) calBuoiDay1Tiet() int {
+	fitness := 0
+	teacherCheck := make(map[string]int)
+
+	for row := 0; row < len(tt.timeTable); row++ {
+		for col := 0; col < len(tt.timeTable[row]); col++ {
+			if !tt.timeTable[row][col].isEmpty() {
+				teacherCheck[tt.timeTable[row][col].teacher.id]++
+			}
+		}
+		if (row+1)%5 == 0 {
+			for _, val := range teacherCheck {
+				if val == 1 {
+					fitness++
+				}
+			}
+			teacherCheck = make(map[string]int) // Reset the map
+		}
+	}
+	return fitness
+}
+
+// kiểm tra số tiết tối thiểu của 1 lớp
+func (tt TimeTable) calTietToiThieu() int {
+	fitness := 0
+	for col := 0; col < len(tt.timeTable[0]); col++ {
+		t := 0
+		for row := 0; row < len(tt.timeTable); row++ {
+			if !tt.timeTable[row][col].isEmpty() {
+				t++
+			}
+			if (row+1)%5 == 0 {
+				if t < 2 && t > 0 {
+					fitness++
+				}
+				t = 0
+			}
+		}
+	}
+	return fitness
+}
+
+// kiểm tra tối đa môn
+
+func (tt TimeTable) calToiDaMon() int {
+	fitness := 0
+	for col := 0; col < len(tt.timeTable[0]); col++ {
+		t := 0
+		subjectCheck := make(map[string]bool)
+		for row := 0; row < len(tt.timeTable); row++ {
+			if !tt.timeTable[row][col].isEmpty() {
+				if !subjectCheck[tt.timeTable[row][col].subject.id] {
+					t++
+				}
+				subjectCheck[tt.timeTable[row][col].subject.id] = true
+			}
+			if (row+1)%5 == 0 {
+				if t > 4 {
+					fitness++
+				}
+				t = 0
+				subjectCheck = make(map[string]bool) // Reset the map
+			}
+		}
+	}
+	return fitness
+}
+
 // đánh giá sự tối ưu của 1 TKB
 func (tt *TimeTable) calFitness() {
 	// hiện tại chỉ check trùng tiết hay không
-	tt.fitness = tt.calTrungTiet()
+	var res int = 0
+	res += tt.calTrungTiet() * 999
+	res += tt.calTietLung() * 600
+	res += tt.calBuoiDay1Tiet() * 10
+	res += tt.calTietToiThieu() * 20
+	res += tt.calToiDaMon() * 10
+	tt.fitness = res
 }
 
 // đánh giá tối ưu của 1 tiết của 1 lớp trong thời khóa biểu
@@ -457,27 +565,28 @@ func geneticAlgo(assignments []Assignment, classes []Class, teachers []Teacher, 
 		fmt.Println(generation, population[0].fitness)
 		generation++
 	}
-	population[0].writeToCSV(classes, lessions, "output.csv")
+	population[0].writeToCSV(classes, lessions, "aoutput.csv")
 	fmt.Println(generation, population[0].fitness)
-
 	for col := 0; col < len(population[0].timeTable[0]); col++ {
 		dup := population[0].getDuplicateLessionsOfClass(classes[col])
 		fmt.Println(dup)
 	}
 }
 
+// countBuoiDay1Tiet
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	// Create a slice to store PhanCong structs
 	assignments := []Assignment{}
-	// classes = []Class{}
+	classes = []Class{}
+	lessions = []Lession{}
+
 	teachers := []Teacher{}
 	subjects := []Subject{}
 	sessions := []Session{}
-	// lessions := []Lession{}
 
 	initLession(&sessions, &lessions)
-	// printLession(lessions)
+	printLession(lessions)
 
 	input(&assignments, &classes, &teachers, &subjects)
 
